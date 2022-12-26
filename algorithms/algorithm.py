@@ -83,6 +83,10 @@ class Algorithm:
             self.pulls[state[0]*self.env.O:(state[0]+1)*self.env.O,2,arms_t[2]] += 1 #C服务
             self.pulls[state[0]*self.env.O+state[1],3,arms_t[3]] += 1 #D服务
 
+            assert (np.sum(self.pulls[0,0]) == self.t+1)
+            assert (np.sum(self.pulls[:,3]) == self.t+1) #检验
+
+            #同上
             self.successes[:, 0, arms_t[0]] += rewards[0]
             self.successes[:, 1, arms_t[1]] += rewards[1]
             self.successes[state[0] * self.env.O:(state[0] + 1) * self.env.O, 2, arms_t[2]] += rewards[2]

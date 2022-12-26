@@ -14,27 +14,31 @@ logger = logging.getLogger(__name__)
 
 class Environment:
     def __init__(self, config,reuse_type=0, deterministic=False):
-        self.T = config['T']
-        self.K = 100
-        self.M = 4
-        self.S = 2
-        self.O = 2
+        self.K = 50 #手臂数量
+        self.M = 4 #服务数量
 
+        self.S = 2 #(scenery)场景数量
+        self.O = 2 #(object)对象数量
+
+        self.T = self.K*self.S*self.O*2 #这个比例时画图较好
         # 计算参数
-        self.phi = 50
-        self.tao = 1
+        self.phi = 0.5
+        self.tao = 0.05
 
-        self.state = []
+        self.state = [] #枚举各种场景对象组合
         for s in range(self.S):
             for o in range(self.O):
                 st = (s, o)
                 self.state.append(st)
 
+        #使用现有ability数据
         with open('ability.pkl',"rb") as file:
             ability = pickle.load(file)
-        # self.cpu_ability = self.get_random_gauss_list(1,10,self.K)
-        self.cpu_ability = ability[0]
-        self.net_ability = ability[1]
+        self.cpu_ability = ability[0][:self.K]
+        self.net_ability = ability[1][:self.K]
+        #重新生成ability
+        # self.cpu_ability = self.get_random_gauss_list(1, 10, self.K)
+        # self.net_ability = self.get_random_gauss_list(1, 10, self.K)
         # with open('ability.pkl','wb') as file:
         #     file.write(pickle.dumps([self.cpu_ability,self.net_ability]))
 
@@ -60,6 +64,8 @@ class Environment:
         self.reuse_table_z = np.zeros((self.S + self.S * self.O, self.K))
         self.Z = 5  # 已有连续Z次未执行重用缓存检索，则下次必定执行重用缓存检索
         self.reuse_type = reuse_type #有重用指数重用，无重用指数重用，无重用，贪婪算法
+
+        self.cpu_consume = []
 
         # self.mu = config['mu']
         # self.mu = np.array(sorted(self.mu, reverse=True))
@@ -109,6 +115,10 @@ class Environment:
     def update(self, t):
         pass
 
+    def nearby(self,ability_expect,delta=0.2): #delta表示上（下）波动的范围
+        ability = np.random.normal(ability_expect, delta/3, 1)
+        return ability
+
     def draw(self, arms, state, type=0, sensing=False):
         if self.reuse_type == 1:
             return self.draw_without_reuse(arms, state)
@@ -117,25 +127,30 @@ class Environment:
 
         rewards = np.zeros((self.M,))
         regret_t = 0
+        num_cpt = 0
         for player in range(self.M):
             point = arms[player]
-            rewards[player] = -(self.phi / self.net_ability[point] + 0)  # 传输时延
+
+            rewards[player] = -(self.phi / self.nearby(self.net_ability[point]))  # 传输时延
             if player < 2:
-                rewards[player] = rewards[player] + (-(self.tao + self.phi / self.cpu_ability[point]))
+                rewards[player] += -(self.tao + self.phi / self.nearby(self.cpu_ability[point]))
                 regret_t += -(self.phi / self.net_ability[self.AB_best_point] + (
                             self.tao + self.phi / self.cpu_ability[self.AB_best_point]))
                 # regret_t += rewards[player]
+                num_cpt += 1
             elif player == 2:  # C服务
                 reuse = self.determine_reuse(state[0], point)
                 if not reuse:
-                    rewards[player] += -self.phi / self.cpu_ability[point]
+                    rewards[player] += -self.phi / self.nearby(self.cpu_ability[point])
+                    num_cpt += 1
                     self.update_reuse_table(state[0], point, reuse_result=0)
                 else:
                     rewards[player] += -self.tao
                     if point in self.Cache[0][state[0]]:  # 节点上有缓存
                         self.update_reuse_table(state[0], point, reuse_result=1)
                     else:
-                        rewards[player] += -self.phi / self.cpu_ability[point]
+                        rewards[player] += -self.phi / self.nearby(self.cpu_ability[point])
+                        num_cpt += 1
                         self.update_reuse_table(state[0], point, reuse_result=-1)
                 regret_t += -(self.phi / self.net_ability[self.Cache[0][state[0]][0]] + self.tao)
                 # if -(self.phi / self.net_ability[self.Cache[0][state[0]][0]] + self.tao)<rewards[player]:
@@ -145,14 +160,16 @@ class Environment:
                 idx = self.S + state[0] * self.O + state[1]  # 表的前S行是C服务的缓存
                 reuse = self.determine_reuse(idx, point)
                 if not reuse:
-                    rewards[player] += -self.phi / self.cpu_ability[point]
+                    rewards[player] += -self.phi / self.nearby(self.cpu_ability[point])
+                    num_cpt += 1
                     self.update_reuse_table(idx, point, reuse_result=0)
                 else:
                     rewards[player] += -self.tao
                     if point in self.Cache[1][state[0] * self.O + state[1]]:  # 检索命中
                         self.update_reuse_table(idx, point, reuse_result=1)
                     else:  # 检索未命中
-                        rewards[player] += -self.phi / self.cpu_ability[point]
+                        rewards[player] += -self.phi / self.nearby(self.cpu_ability[point])
+                        num_cpt += 1
                         self.update_reuse_table(idx, point, reuse_result=-1)
                 regret_t += -(self.phi / self.net_ability[self.Cache[1][state[0] * self.O + state[1]][0]] + self.tao)
                 # if -(self.phi / self.net_ability[self.Cache[1][state[0]*self.O+state[1]][0]] + self.tao)<rewards[player]:
@@ -160,7 +177,7 @@ class Environment:
                 #     print(rewards[player])
 
             regret_t -= rewards[player]
-
+        self.cpu_consume.append(num_cpt*self.phi)
         return rewards, regret_t
 
     def draw_without_reuse(self, arms, state):
@@ -169,8 +186,8 @@ class Environment:
         regret_t = 0
         for player in range(self.M):
             point = arms[player]
-            rewards[player] = -(self.phi / self.net_ability[point] + 0)  # 传输时延
-            rewards[player] += (-(self.tao + self.phi / self.cpu_ability[point]))
+            rewards[player] = -self.phi / self.nearby(self.net_ability[point])  # 传输时延
+            rewards[player] += (-(self.tao + self.phi / self.nearby(self.cpu_ability[point])))
             regret_t += -(self.phi / self.net_ability[self.AB_best_point] + (
                     self.tao + self.phi / self.cpu_ability[self.AB_best_point]))
             # regret_t += rewards[player]
@@ -182,16 +199,16 @@ class Environment:
         regret_t = 0
         for player in range(self.M):
             point = arms[player]
-            rewards[player] = -(self.phi / self.net_ability[point] + 0)  # 传输时延
+            rewards[player] = -self.phi / self.nearby(self.net_ability[point])  # 传输时延
             if player < 2:
-                rewards[player] = rewards[player] + (-(self.tao + self.phi / self.cpu_ability[point]))
+                rewards[player] +=  -(self.tao + self.phi / self.nearby(self.cpu_ability[point]))
                 regret_t += -(self.phi / self.net_ability[self.AB_best_point] + (
                             self.tao + self.phi / self.cpu_ability[self.AB_best_point]))
                 # regret_t += rewards[player]
             elif player == 2:  # C服务
                 rewards[player] += -self.tao
                 if point not in self.Cache[0][state[0]]:  # 节点上没有缓存
-                    rewards[player] += -self.phi / self.cpu_ability[point]
+                    rewards[player] += -self.phi / self.nearby(self.cpu_ability[point])
                 regret_t += -(self.phi / self.net_ability[self.Cache[0][state[0]][0]] + self.tao)
                 # if -(self.phi / self.net_ability[self.Cache[0][state[0]][0]] + self.tao)<rewards[player]:
                 #     print(-(self.phi / self.net_ability[self.Cache[0][state[0]][0]] + self.tao))
@@ -199,7 +216,7 @@ class Environment:
             else:  # D服务
                 rewards[player] += -self.tao
                 if point not in self.Cache[1][state[0] * self.O + state[1]]:  # 检索未命中
-                    rewards[player] += -self.phi / self.cpu_ability[point]
+                    rewards[player] += -self.phi / self.nearby(self.cpu_ability[point])
                 regret_t += -(self.phi / self.net_ability[self.Cache[1][state[0] * self.O + state[1]][0]] + self.tao)
                 # if -(self.phi / self.net_ability[self.Cache[1][state[0]*self.O+state[1]][0]] + self.tao)<rewards[player]:
                 #     print(-(self.phi / self.net_ability[self.Cache[1][state[0]*self.O+state[1]][0]] + self.tao))

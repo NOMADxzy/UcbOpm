@@ -27,7 +27,7 @@ except:
     pass
 
 class MCTopM(Algorithm):
-    def __init__(self, environment, ucb_type="UCB1"):
+    def __init__(self, environment, ucb_type="UCB1",greedy=False):
         super().__init__(environment=environment)
         self.sensing = True
         self.ucb_type = ucb_type
@@ -35,6 +35,7 @@ class MCTopM(Algorithm):
         self.c = 0
         self.step_reward = []
         self.avgacc_reward = []
+        self.greedy = greedy
 
 
     def reset(self):
@@ -49,11 +50,17 @@ class MCTopM(Algorithm):
     def compute_ucb_idx(self,state):
         ucb_idx = np.zeros((self.env.M,
                             self.env.K))
+
         if self.ucb_type == "UCB1":
             #取出相应状态下ABCD对每个节点的置信区间上届
             ucb_idx = self.mu_hat[state[0]*self.env.O+state[1]] + np.sqrt((2*np.log(self.t))/1e-10+self.pulls[state[0]*self.env.O+state[1]])
         else:
             raise ValueError
+        if self.greedy:#贪婪算法，尽量不尝试新节点
+            D_pulls = np.sum(self.pulls[:,3,:],axis=1)
+            if len(np.where(D_pulls == 0)[0])==0: #各个组合都出现过了
+                ucb_idx[self.pulls[state[0] * self.env.O + state[1]] == 0] = 0
+                return ucb_idx
         ucb_idx[self.pulls[state[0]*self.env.O+state[1]]== 0] = float('inf')
        # ucb_idx = np.minimum(ucb_idx,1)
         return ucb_idx
@@ -74,7 +81,7 @@ class MCTopM(Algorithm):
         return M_hat
 
     def update_reward(self,reward_list,regret,step):
-        if step%5 != 0:
+        if step%1 != 0:
             return
         reward = np.sum(reward_list)/4
         self.step_reward.append(reward)
@@ -88,9 +95,10 @@ class MCTopM(Algorithm):
         state = self.env.state[np.random.randint(0,4)]
         arms_t = np.random.choice(np.arange(self.env.K),
                                      size=(self.env.M,))
+        print(arms_t)
         #collisions_t = np.zeros((self.env.M, self.env.K))
 
-        ucb_idx = self.compute_ucb_idx(state)
+        # ucb_idx = self.compute_ucb_idx(state)
 
         rewards_t, regret_t = self.env.draw(arms_t,state=state,type=2,sensing=self.sensing)
         self.update_reward(rewards_t,regret_t,self.t)
@@ -104,17 +112,18 @@ class MCTopM(Algorithm):
             # M_hat_t = self.compute_M_hat(ucb_idx=new_ucb_idx)
 
             new_arms_t = np.zeros((self.env.M,))
-            state = self.env.state[np.random.randint(0,4)]
+            state = self.env.state[np.random.randint(0,len(self.env.state))]
             new_ucb_idx = self.compute_ucb_idx(state)
 
+            arm_idx_sorted = np.argsort(-new_ucb_idx)
             for player in range(self.env.M):#手臂决策过程
-                arm_idx_sorted = np.argsort(-new_ucb_idx)
+
                 best_idx = arm_idx_sorted[player,0]#取ucb值最大的
                 new_arms_t[player] = best_idx
 
             arms_t = new_arms_t.astype(int)
             print(arms_t)
-            ucb_idx = new_ucb_idx
+            # ucb_idx = new_ucb_idx
 
             rewards_t, regret_t  = self.env.draw(arms_t,state,type=2, sensing=self.sensing)
             self.update_reward(rewards_t, regret_t, self.t)
@@ -141,7 +150,7 @@ class MCTopM(Algorithm):
         plt.legend()
 
 if __name__ == "__main__":
-    config = {'T':800,'dynamic':False}
+    config = {'dynamic':False}
     env = Environment(config=config,
                       deterministic=False)
     env1 = Environment(config=config,reuse_type=1,
@@ -149,6 +158,7 @@ if __name__ == "__main__":
     env2 = Environment(config=config,reuse_type=2,
                       deterministic=False)
     algo = MCTopM(env)
+    algo_greedy = MCTopM(env,greedy=True)
     algo1 = MCTopM(env1)
     algo2 = MCTopM(env2)
 
