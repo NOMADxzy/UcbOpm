@@ -14,10 +14,12 @@ logger = logging.getLogger(__name__)
 
 class Environment:
     def __init__(self, config,reuse_type=0, deterministic=False):
-        self.K = 50 #手臂数量
+        if not 'K' in config: config['K'] = 100
+        if not 'S' in config: config['S'] = 2 #默认值
+        self.K = config['K'] #手臂数量
         self.M = 4 #服务数量
 
-        self.S = 2 #(scenery)场景数量
+        self.S = config['S'] #(scenery)场景数量
         self.O = 2 #(object)对象数量
 
         self.T = self.K*self.S*self.O*2 #这个比例时画图较好
@@ -121,9 +123,9 @@ class Environment:
 
     def draw(self, arms, state, type=0, sensing=False):
         if self.reuse_type == 1:
-            return self.draw_without_reuse(arms, state)
-        elif self.reuse_type == 2:
             return self.draw_without_reuse_table(arms, state)
+        elif self.reuse_type == 2:
+            return self.draw_without_reuse(arms, state)
 
         rewards = np.zeros((self.M,))
         regret_t = 0
@@ -192,6 +194,7 @@ class Environment:
                     self.tao + self.phi / self.cpu_ability[self.AB_best_point]))
             # regret_t += rewards[player]
             regret_t -= rewards[player]
+        self.cpu_consume.append(4 * self.phi)
         return rewards, regret_t
 
     def draw_without_reuse_table(self, arms, state):
