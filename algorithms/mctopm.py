@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import os
 
 import logging
 import pickle
@@ -34,7 +35,7 @@ class MCTopM(Algorithm):
         self.step_reward = []
         self.avgacc_reward = []
         self.greedy = greedy
-        self.plt_interval = 2
+        self.plt_interval = 4
         self.latency_of_states = [0 for i in range(len(self.env.state))] #存放各个state的最终时延，画图用
 
 
@@ -81,8 +82,6 @@ class MCTopM(Algorithm):
         return M_hat
 
     def update_reward(self,reward_list,regret,step,state_idx):
-        if step%2 != 0: #图貌似好点
-            return
         reward = np.sum(reward_list)
         self.step_reward.append(reward)
         self.latency_of_states[state_idx] = -reward
@@ -135,12 +134,6 @@ class MCTopM(Algorithm):
             self.update_stats(arms_t=arms_t,state=state, rewards=rewards_t, regret_t=regret_t)
             self.env.update(t=self.t)
             self.t += 1
-            #if self.t%1==0:
-                ##logger.info(f"Now successes: {self.successes}")
-                ##logger.info(f"Now pulls: {self.pulls}")
-                ##logger.info(f"Now collisions: {self.collisions}")
-                #logger.info(f"t = {self.t}: drawing {arms_t}, reward: {rewards_t}, regret:{regret_t}")
-                #logger.info(f"Now mu_hat: \n{self.mu_hat}\n, successes: \n {self.successes}, pulls:\n{self.pulls}\n")
 
 
     def resize(self,list,a):
@@ -150,41 +143,56 @@ class MCTopM(Algorithm):
                 new_list.append(e)
         return new_list
 
-    def plot_change_K(self):
+    def sample_plot(self,vals,interval,msg):  # 按interval采样vals并绘图
+        new_vals = self.resize(vals, interval)
+        num_of_x = len(new_vals)
+        plt.plot([i * interval for i in range(num_of_x)],
+                 new_vals, label=msg)
+
+    def plot_change_K(self):  # 改变节点数量
         msg = str(self.env.K)+"_point"
-        plt.plot(self.resize(self.step_reward,self.plt_interval * 4),label=msg)
+        self.sample_plot(self.step_reward, self.plt_interval*2, msg)
+        # plt.plot(self.resize(self.step_reward,self.plt_interval * 4),label=msg)
         plt.legend()
 
-    def plot_change_S(self):
+    def plot_change_S(self):  # 改变场景数量
         msg = str(self.env.S) + "_scenery"
-        plt.plot(self.resize(self.step_reward, self.plt_interval * 4), label=msg)
+        self.sample_plot(self.step_reward,self.plt_interval*3,msg)
+        # plt.plot(self.resize(self.step_reward, self.plt_interval * 4), label=msg)
         plt.legend()
 
-    def plot_consume(self):
+    def plot_consume(self):  # 计算资源消耗图
         if self.env.reuse_type==0:
-            msg = "reuse"
+            msg = "H-MCB"
         elif self.env.reuse_type==2:
-            msg = "no_reuse"
+            msg = "Non_reuse"
         else: raise ValueError
 
-        plt.plot(self.resize(self.env.cpu_consume, self.plt_interval), label=msg)
+        # plt.plot(self.resize(self.env.cpu_consume, self.plt_interval), label=msg)
+        self.sample_plot(self.env.cpu_consume, self.plt_interval, msg=msg)
         plt.legend()
 
-    def plot_diff_policy(self):
+    def plot_diff_policy(self,reward_type):  # 算法对比图
         msg = ""
         if self.env.reuse_type == 0:
             if self.greedy:
-                msg = "greedy"
-            else: msg = "reuse_with_reuse_table"
+                msg = "Greedy"
+            else: msg = "H-MCB"
         elif self.env.reuse_type == 1:
-            msg = "reuse_without_reuse_table"
+            msg = "MCB"
         elif self.env.reuse_type == 2:
-            msg = "no_reuse"
-        plt.plot(self.resize(self.step_reward,self.plt_interval), label="step_reward_" + msg)
-        plt.plot(self.resize(self.avgacc_reward,self.plt_interval), label="avgacc_reward_" + msg)
+            msg = "Non_reuse"
+
+        # 按间隔绘制折线图，否则太挤
+        if reward_type== 'step_reward':
+            self.sample_plot(self.step_reward,self.plt_interval,"step_reward_" + msg)
+        elif reward_type== 'avgacc_reward':
+            self.sample_plot(self.avgacc_reward, self.plt_interval, "avgacc_reward_" + msg)
+        else: raise ValueError
         plt.legend()
 
-def get_all_algos(config):
+
+def get_all_algos(config):  # 生成四种算法
     env = Environment(config=config,
                       deterministic=False)
     env_reuse_no_table = Environment(config=config, reuse_type=1,
@@ -198,7 +206,9 @@ def get_all_algos(config):
     algos.append(MCTopM(env, greedy=True)) #贪婪算法
     return algos
 
+
 def change_K(K_list):
+    plt.figure()
     for K in K_list:
         env = Environment(config={'K': K, 'S': 2},
                           deterministic=False)
@@ -208,11 +218,13 @@ def change_K(K_list):
 
     plt.xlabel("t")
     plt.ylabel("step_reward")
-    plt.show()
+    if plt_show: plt.show()
+    plt.savefig('../results/change_K.png')
 
 
 
 def change_S(S_list):
+    plt.figure()
     for S in S_list:
         env = Environment(config={'K': 100, 'S': S},
                           deterministic=False)
@@ -222,18 +234,20 @@ def change_S(S_list):
 
     plt.xlabel("t")
     plt.ylabel("step_reward")
-    plt.show()
+    if plt_show: plt.show()
+    plt.savefig('../results/change_S.png')
 
 def compare_Latency(val_list,xlabel):
-    if xlabel=='K': xlabel_zh = "节点数量"
+    plt.figure()
+    if xlabel=='K': xlabel_zh = "算力节点数量"
     elif xlabel=='S': xlabel_zh = "场景数量"
     else: raise ValueError
 
-    algo_names = ['本文算法','无重用指数','无重用','贪婪算法']
-    data = {'本文算法': [],
-            '无重用指数': [],
-            '无重用': [],
-            '贪婪算法': []}
+    algo_names = ['H-MCB','MCB','Non_reuse','Greedy']
+    data = {'H-MCB': [],
+            'MCB': [],
+            'Non_reuse': [],
+            'Greedy': []}
     for val in val_list:
         algos = get_all_algos(config={xlabel: val})
         for i, algo in enumerate(algos):
@@ -247,25 +261,40 @@ def compare_Latency(val_list,xlabel):
 
     # font = fm.FontProperties(fname=r'书法.ttf')
     plt.xlabel(xlabel_zh, fontproperties='simhei')
-    plt.ylabel('时延', fontproperties='simhei')
-    plt.xticks(rotation=90, fontproperties='simhei')
+    plt.ylabel('时延/s', fontproperties='simhei')
+    plt.xticks(rotation=360, fontproperties='simhei')
     plt.legend()
 
     # 显示绘制结果
-    plt.show()
+    if plt_show: plt.show()
+    plt.savefig('../results/compare_latency_'+xlabel+'.png')
 
 def change_policy():
-    config = {'K': 100, 'S': 2}
+    plt.figure()
+    config = {'K': 50, 'S': 2,
+              'T':800 }
     algos = get_all_algos(config)
     for algo in algos:
         algo.run()
-        algo.plot_diff_policy()
+        algo.plot_diff_policy(reward_type='step_reward')
 
     plt.xlabel("t")
-    plt.ylabel("reward")
-    plt.show()
+    plt.ylabel("step_reward")
+    if plt_show: plt.show()
+    plt.savefig('../results/compare_policy_step.png')
+
+    plt.figure()
+    for algo in algos:
+        algo.run()
+        algo.plot_diff_policy(reward_type='avgacc_reward')
+
+    plt.xlabel("t")
+    plt.ylabel("avgacc_reward")
+    if plt_show: plt.show()
+    plt.savefig('../results/compare_policy_avgacc.png')
 
 def compare_Consume():
+    plt.figure()
     config = {'K': 100, 'S': 2}
     env = Environment(config=config,
                       deterministic=False)
@@ -281,14 +310,20 @@ def compare_Consume():
 
     plt.xlabel("t")
     plt.ylabel("consume")
-    plt.show()
+    if plt_show: plt.show()
+    plt.savefig('../results/compare_consume.png')
 
 
 
 if __name__ == "__main__":
-    # change_K([50,100,200])
-    # change_S([2,4,6])
-    # change_policy()
-    # compare_Latency([50,100,200],'K')
-    # compare_Latency([2, 4, 6], 'S')
+    if not os.path.exists('../results'):
+        os.mkdir('../results')
+
+    plt_show = False
+
+    change_K([50,100,200])
+    change_S([2,4,6])
+    change_policy()
+    compare_Latency([50,100,200],'K')
+    compare_Latency([2, 4, 6], 'S')
     compare_Consume()
