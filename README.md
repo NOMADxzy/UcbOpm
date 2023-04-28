@@ -1,32 +1,12 @@
-# multi_player_multi_armed_bandit_algorithms
-
-This repository allows to benchmark all state-of-the-art Multi Player Multi-Armed Bandit algorithms.
-Implemented algorithms:
-- **Cooperative and Stochastic Multi-Player Multi-Armed Bandit: Optimal Regret With Neither Communication Nor Collisions**, Sébastien Bubeck, Thomas Budzinski, Mark Sellke 
-- SIC-MMAB, SIC-MMAB2 and DYN-MMAB algorithms from **SIC-MMAB: Synchronisation Involves Communication in Multiplayer Multi-Armed Bandits**, Etienne Boursier, Vianney Perchet
-- EC-SIC from **Decentralized Multi-player Multi-armed Bandits with No Collision Information**, Chengshuai Shi, Wei Xiong, Cong Shen, Jing Yang
-- First and Second algorithm from **Multiplayer bandits without observing collision information**, Gabor Lugosi, Abbas Mehrabian
-- MCTopM, SelfishUCB from **Multi-Player Bandits Revisited**, Lilian Besson, Emilie Kaufmann
-- Musical Chairs from **Multi-Player Bandits -- a Musical Chairs Approach**, Jonathan Rosenski, Ohad Shamir, Liran Szlak
-- Randomized SelfishUCB from **A High Performance, Low Complexity Algorithm for Multi-Player Bandits Without Collision Sensing Information**, Cindy Trinh, Richard Combes
+# 论文仿真
+计算可重用的算力网络中时延敏感的任务调度优化/算力网络中基于资源重用的任务调度优化
 
 
-This is the code attached to the following paper:
-***A High Performance, Low Complexity Algorithm for Multi-Player Bandits Without Collision Sensing Information***, *Cindy Trinh, Richard Combes*. (https://arxiv.org/abs/2102.10200)
+## Quick Start
 
+```shell
+# cd algorithms
+$ python mctopm.py # 运行该项目
+```
 
-# Requirements
-
-- Python3
-
-- numpy, matplotlib
-
-- (Optional) To improve speed, compile the cythonized version of the compute of KL-UCB index:
- ```
- cd multi_player_multi_armed_bandits/algorithms/cklucb
- python setup.py build_ext --inplace
- ```
-
-# How to run
-
-python mctopm.py
+![图片太帅、无法显示](struct.png)

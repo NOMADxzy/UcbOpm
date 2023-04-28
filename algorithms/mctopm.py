@@ -255,6 +255,7 @@ def compare_Latency(val_list,xlabel):
             latency = np.sum(algo.latency_of_states) / len(algo.env.state)
             data[algo_names[i]].append(latency)
 
+    if xlabel=='S': val_list = [2*e for e in val_list]
     df = pd.DataFrame(data, index=val_list)
     df.plot(kind='bar')
 
@@ -295,7 +296,7 @@ def change_policy():
 
 def compare_Consume():
     plt.figure()
-    config = {'K': 100, 'S': 2}
+    config = {'K': 20, 'S': 2}
     env = Environment(config=config,
                       deterministic=False)
 
@@ -319,11 +320,11 @@ if __name__ == "__main__":
     if not os.path.exists('../results'):
         os.mkdir('../results')
 
-    plt_show = False
+    plt_show = True
 
-    change_K([50,100,200])
-    change_S([2,4,6])
-    change_policy()
-    compare_Latency([50,100,200],'K')
+    # change_K([50,100,200])
+    # change_S([2,4,6])
+    # change_policy()
+    # compare_Latency([50,100,200],'K')
     compare_Latency([2, 4, 6], 'S')
-    compare_Consume()
+    # compare_Consume()
