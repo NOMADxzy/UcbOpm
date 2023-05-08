@@ -5,8 +5,11 @@
 ## Quick Start
 
 ```shell
+#安装依赖
+pip install -r requirements.txt
+
 # cd algorithms
-$ python mctopm.py # 运行该项目
+$ python mctopm.py # 运行
 ```
 
 ![图片太帅、无法显示](struct.png)
