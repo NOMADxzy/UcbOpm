@@ -4,6 +4,8 @@
 
 ## Quick Start
 
+安装simhei字体
+
 ```shell
 #安装依赖
 pip install -r requirements.txt
