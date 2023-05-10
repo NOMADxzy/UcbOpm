@@ -126,7 +126,7 @@ class MCTopM(Algorithm):
             state = self.env.state[state_idx]
 
             if self.policy == 2:
-                new_arms_t = arms_t
+                pass  # 和上一轮保持一样都是 Best Point
             else:
                 new_ucb_idx = self.compute_ucb_idx(state)  # 取出相应场景对象的ucb矩阵
                 arm_idx_sorted = np.argsort(-new_ucb_idx)
@@ -135,7 +135,7 @@ class MCTopM(Algorithm):
                     best_idx = arm_idx_sorted[player, 0]  # 取ucb值最大的
                     new_arms_t[player] = best_idx
 
-            arms_t = new_arms_t.astype(int)
+                arms_t = new_arms_t.astype(int)
             # print(arms_t)
             # ucb_idx = new_ucb_idx
 
@@ -187,18 +187,21 @@ class MCTopM(Algorithm):
 
     def plot_diff_policy(self, reward_type):  # 算法对比图
         msg = ""
-        if self.env.reuse_type == 0:
+        if self.env.reuse_type == 0:  # 有重用表(两种情况)
             if self.policy == 0:
                 msg = "H-MCB"
-            elif self.policy == 0:
+            elif self.policy == 1:
                 msg = "Greedy"
+            else:
+                raise NotImplementedError
+        elif self.env.reuse_type == 1:  # 无重用表（两种情况）
+            if self.policy == 0:
+                msg = "MCB"
             elif self.policy == 2:
                 msg = "Always-Best"
             else:
                 raise NotImplementedError
-        elif self.env.reuse_type == 1:
-            msg = "MCB"
-        elif self.env.reuse_type == 2:
+        elif self.env.reuse_type == 2:  # 无重用
             msg = "Non_reuse"
 
         # 按间隔绘制折线图，否则太挤
@@ -231,8 +234,9 @@ def get_all_algos(config):  # 生成五种算法
 
 def change_K(K_list):  # 本文算法 改变计算节点数量
     plt.figure()
+    common_T = K_list[-1] * 2 * 2 * 2  # 统一T为最长的那个，以对齐曲线
     for K in K_list:
-        env = Environment(config={'K': K, 'S': 2},
+        env = Environment(config={'K': K, 'S': 2, 'T': common_T},
                           deterministic=False)
         algo = MCTopM(env)
         algo.run()
@@ -246,8 +250,9 @@ def change_K(K_list):  # 本文算法 改变计算节点数量
 
 def change_S(S_list):  # 本文算法 改变场景数量
     plt.figure()
+    common_T = S_list[-1] * 100 * 2 * 2
     for S in S_list:
-        env = Environment(config={'K': 100, 'S': S},
+        env = Environment(config={'K': 100, 'S': S, 'T': common_T},
                           deterministic=False)
         algo = MCTopM(env)
         algo.run()
@@ -346,11 +351,11 @@ if __name__ == "__main__":
     if not os.path.exists('../results'):
         os.mkdir('../results')
 
-    plt_show = True
+    plt_show = False  # 为True时直接展示，False时保存到results文件夹，二者不能同时生效
 
-    # change_K([50,100,200])
-    # change_S([2,4,6])
-    # change_policy()
-    # compare_Latency([50,100,200],'K')
+    change_K([50,100,200])
+    change_S([2,4,6])
+    change_policy()
+    compare_Latency([50,100,200],'K')
     compare_Latency([2, 4, 6], 'S')
-    # compare_Consume()
+    compare_Consume()

@@ -4,14 +4,26 @@
 
 ## Quick Start
 
-安装simhei字体
+### 一、[安装simhei字体](https://blog.csdn.net/BIT_666/article/details/122365074)以显示中文
 
+### 二、运行
 ```shell
 #安装依赖
 pip install -r requirements.txt
 
-# cd algorithms
-$ python mctopm.py # 运行
+cd algorithms
+python mctopm.py # 运行
 ```
 
 ![图片太帅、无法显示](struct.png)
+
+## Preview
+
+![图片太帅、无法显示](results/change_K.png)
+![图片太帅、无法显示](results/change_S.png)
+![图片太帅、无法显示](results/compare_consume.png)
+![图片太帅、无法显示](results/compare_latency_K.png)
+![图片太帅、无法显示](results/compare_latency_K.png)
+![图片太帅、无法显示](results/compare_policy_step.png)
+![图片太帅、无法显示](results/compare_policy_avgacc.png)
+
