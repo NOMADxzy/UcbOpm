@@ -207,6 +207,7 @@ class Environment:
     def draw_without_reuse_table(self, arms, state):
         rewards = np.zeros((self.M,))
         regret_t = 0
+        num_cpt = 0
         for player in range(self.M):
             point = arms[player]
             rewards[player] = -self.phi / self.nearby(self.net_ability[point])  # 传输时延
@@ -216,9 +217,11 @@ class Environment:
                 regret_t += -(self.phi / self.net_ability[self.AB_best_point] + (
                             self.tao + self.phi / self.cpu_ability[self.AB_best_point]))
                 # regret_t += rewards[player]
+                num_cpt += 1
             elif player == 2:  # C服务
                 if point not in self.Cache[0][state[0]]:  # 节点上没有缓存
                     rewards[player] += -self.phi / self.nearby(self.cpu_ability[point])
+                    num_cpt += 1
                 regret_t += -(self.phi / self.net_ability[self.Cache[0][state[0]][0]] + self.tao)
                 # if -(self.phi / self.net_ability[self.Cache[0][state[0]][0]] + self.tao)<rewards[player]:
                 #     print(-(self.phi / self.net_ability[self.Cache[0][state[0]][0]] + self.tao))
@@ -226,6 +229,7 @@ class Environment:
             else:  # D服务
                 if point not in self.Cache[1][state[0] * self.O + state[1]]:  # 检索未命中
                     rewards[player] += -self.phi / self.nearby(self.cpu_ability[point])
+                    num_cpt += 1
                 regret_t += -(self.phi / self.net_ability[self.Cache[1][state[0] * self.O + state[1]][0]] + self.tao)
                 # if -(self.phi / self.net_ability[self.Cache[1][state[0]*self.O+state[1]][0]] + self.tao)<rewards[player]:
                 #     print(-(self.phi / self.net_ability[self.Cache[1][state[0]*self.O+state[1]][0]] + self.tao))
@@ -233,6 +237,7 @@ class Environment:
 
             regret_t -= rewards[player]
 
+        self.cpu_consume.append(num_cpt * (self.phi + random.uniform(0, 0.1)))
         return rewards, regret_t
 
     def draw_greedy(self):

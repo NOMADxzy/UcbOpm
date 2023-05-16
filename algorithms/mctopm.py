@@ -8,10 +8,6 @@ import pickle
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-
-from tqdm import tqdm
-# from .algorithm import *
-# from .utils import *
 from algorithm import Algorithm
 from environment.environment import Environment
 
@@ -19,12 +15,13 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 cythonized_KLUCB = False
-try:
-    pass
-    # from cklucb import computeKLUCB
-except:
-    cythonized_KLUCB = False
-    pass
+if cythonized_KLUCB:
+    try:
+        pass
+        # from cklucb import computeKLUCB
+    except:
+        cythonized_KLUCB = False
+        pass
 
 
 class MCTopM(Algorithm):
@@ -178,6 +175,8 @@ class MCTopM(Algorithm):
             msg = "H-MCB"
         elif self.env.reuse_type == 2:
             msg = "Non_reuse"
+        elif self.env.reuse_type==1:
+            msg = "Always_Best"
         else:
             raise ValueError
 
@@ -230,7 +229,7 @@ def get_all_algos(config):  # 生成五种算法
     return algos
 
 
-# 所有的对比图:
+# 下面每个方法绘制一张多条曲线的对比图:
 
 def change_K(K_list):  # 本文算法 改变计算节点数量
     plt.figure()
@@ -329,14 +328,15 @@ def change_policy():  # 五种算法 奖励变化情况
 def compare_Consume():  # 本文算法和无重用算法 对比计算资源消耗
     plt.figure()
     config = {'K': 20, 'S': 2}
-    env = Environment(config=config,
-                      deterministic=False)
 
-    env_no_reuse = Environment(config=config, reuse_type=2,
-                               deterministic=False)
+    env = Environment(config=config, deterministic=False)
+    env_reuse_no_table = Environment(config=config, reuse_type=1)
+    env_no_reuse = Environment(config=config, reuse_type=2, deterministic=False)
+
     algos = []
     algos.append(MCTopM(env))
     algos.append(MCTopM(env_no_reuse))
+    algos.append(MCTopM(env_reuse_no_table, policy=2))
     for algo in algos:
         algo.run()
         algo.plot_consume()
